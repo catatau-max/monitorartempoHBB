@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Monitor Habbo</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    text-align: center;
+    margin: 0;
+    padding: 30px;
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+input, select {
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+    margin: 5px;
+}
+
+button {
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background: #22c55e;
+    color: white;
+    font-weight: bold;
+}
+
+.card {
+    background: #1e293b;
+    margin: 15px auto;
+    padding: 15px;
+    width: 350px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.online {
+    color: #22c55e;
+    font-weight: bold;
+}
+
+.offline {
+    color: #ef4444;
+    font-weight: bold;
+}
+
+.tempo {
+    font-size: 12px;
+    opacity: 0.7;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🔎 Monitor Habbo</h1>
+
+<!-- Pesquisa avulsa -->
+<input type="text" id="pesquisa" placeholder="Pesquisar usuário">
+<button onclick="pesquisarAvulso()">Pesquisar</button>
+
+<!-- Filtro da lista fixa -->
+<select id="filtro">
+    <option value="todos">Todos</option>
+    <option value="online">Online</option>
+    <option value="offline">Offline</option>
+</select>
+<button onclick="atualizar()">Filtrar lista</button>
+
+<div id="resultado"></div>
+
+<script>
+// Lista fixa de usuários monitorados
+const usuarios = [
+    "ronaldo",
+    "Wyra"
+];
+
+// Guarda o momento em que cada usuário ficou online
+let statusUsuarios = {};
+
+// Função para consultar status da API
+async function verificarStatus(nome) {
+    try {
+        const response = await fetch(`https://www.habbo.com.br/api/public/users?name=${encodeURIComponent(nome)}`);
+        const data = await response.json();
+        return data.online; // true ou false
+    } catch {
+        return null;
+    }
+}
+
+// Atualiza a lista fixa com filtro
+async function atualizar() {
+    const termo = document.getElementById("pesquisa").value.toLowerCase();
+    const filtro = document.getElementById("filtro").value;
+    const resultado = document.getElementById("resultado");
+    resultado.innerHTML = "";
+
+    for (let nome of usuarios) {
+        if (!nome.toLowerCase().includes(termo)) continue;
+
+        const online = await verificarStatus(nome);
+
+        // Atualiza tempo online
+        if (online && !statusUsuarios[nome]) {
+            statusUsuarios[nome] = Date.now();
+        } else if (!online) {
+            delete statusUsuarios[nome];
+        }
+
+        // Filtra pelo select
+        if (filtro === "online" && !online) continue;
+        if (filtro === "offline" && online) continue;
+
+        let tempoOnline = "";
+        if (statusUsuarios[nome]) {
+            const minutos = Math.floor((Date.now() - statusUsuarios[nome]) / 60000);
+            tempoOnline = `Online há ${minutos} min`;
+        }
+
+        resultado.innerHTML += criarCard(nome, online, tempoOnline);
+    }
+}
+
+// Função para pesquisar qualquer usuário avulso
+async function pesquisarAvulso() {
+    const input = document.getElementById("pesquisa");
+    const nome = input.value.trim();
+    const resultado = document.getElementById("resultado");
+
+    if (!nome) return;
+
+    const online = await verificarStatus(nome);
+    let tempoOnline = "";
+
+    // Não adiciona tempo online para pesquisa avulsa
+    resultado.innerHTML = criarCard(nome, online, tempoOnline);
+}
+
+// Função que cria o card HTML
+function criarCard(nome, online, tempoOnline) {
+    return `
+        <div class="card">
+            <img src="https://www.habbo.com.br/habbo-imaging/avatarimage?user=${encodeURIComponent(nome)}&size=l" width="60">
+            <div>
+                <strong>${nome}</strong><br>
+                <span class="${online ? 'online' : 'offline'}">
+                    ${online === null ? '❌ Não encontrado' : (online ? '🟢 Online' : '🔴 Offline')}
+                </span><br>
+                ${tempoOnline ? `<div class="tempo">${tempoOnline}</div>` : ""}
+                <a href="https://www.habbo.com.br/profile/${encodeURIComponent(nome)}" target="_blank">Ver perfil</a>
+            </div>
+        </div>
+    `;
+}
+
+// Atualiza a lista fixa a cada 30 segundos
+setInterval(atualizar, 30000);
+</script>
+
+</body>
+</html>
